@@ -22,15 +22,15 @@ const openai = new OpenAI({
 
 // 馬丁路德機器人配置
 const LUTHER_CONFIG = {
-    promptId: "pmpt_687f0b8c68908193864d9a438af2dd4f01a25e0d816dfd3a",
-    version: "8",
+    promptId: "pmpt_8e9f28a4d4bec7a0f0f6b5c4a3a2d9e1b8b7c6d5e4f3",
+    version: "7",
     maxResponseLength: 2000,
     responseDelay: 2000, // 回應延遲 (毫秒)
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
     stopCommand: "!stop", // 停止指令
     otherBotId: "1397080413540978789", // 加爾文機器人 ID
-    shortResponseTokens: 90, // 簡短回應 token 限制
-    longResponseTokens: 1000, // 詳細回應 token 限制
+    shortResponseTokens: 512, // 簡短回應 token 限制
+    longResponseTokens: 2048, // 詳細回應 token 限制
 };
 
 // 機器人狀態管理
@@ -63,7 +63,7 @@ client.once('ready', () => {
 // 更新機器人狀態顯示
 function updateBotPresence() {
     const activity = botStatus.isActive ? 
-        '研讀聖經與神學著作' : '已暫停回應 (!stop)';
+        '研讀聖經與路德宗神學' : '已暫停回應 (!stop)';
     const status = botStatus.isActive ? 'online' : 'idle';
     
     client.user.setPresence({
@@ -132,7 +132,7 @@ client.on('messageCreate', async (message) => {
         // 延遲回應讓對話更自然
         setTimeout(async () => {
             try {
-                // 獲取馬丁路德的回應
+                // 獲取路德的回應
                 const response = await getLutherResponse(message, isDirectMention);
                 
                 if (response && response.trim()) {
@@ -228,7 +228,7 @@ function getConversationContext(channelId) {
     ).join('\n');
 }
 
-// 呼叫馬丁路德 AI 回應
+// 呼叫路德 AI 回應
 async function getLutherResponse(message, isDirectMention = false) {
     try {
         const conversationContext = getConversationContext(message.channel.id);
@@ -242,8 +242,8 @@ async function getLutherResponse(message, isDirectMention = false) {
             LUTHER_CONFIG.shortResponseTokens;
             
         const responseStyle = isDirectMention ? 
-            "請提供詳細完整的神學回應，但保持對話風格，就像在和朋友深入討論神學話題。不要寫成學術文章或摘錄，要像自然的對話交流。" :
-            "請給出簡短自然的對話回應，就像朋友間的閒聊，最多30個中文字。避免長篇大論，保持輕鬆對話的語調。";
+            "請提供詳細完整的路德宗神學回應，但保持對話風格，就像在和朋友深入討論神學話題。不要寫成學術文章或摘錄，要像自然的對話交流。" :
+            "請給出自然的對話回應，就像朋友間的閒聊，最多60個中文字。避免長篇大論，保持輕鬆對話的語調。";
         
         // 構建包含所有上下文的輸入
         const fullInput = `對話上下文: ${conversationContext}
@@ -254,17 +254,20 @@ async function getLutherResponse(message, isDirectMention = false) {
 發送者: ${message.author.displayName || message.author.username} ${message.author.bot ? '(機器人)' : '(信徒)'}
 回應模式: ${isDirectMention ? '詳細回應' : '簡短對話'}
 
-請以16世紀德國神學家馬丁路德的身份用繁體中文回應。這是一個即時對話，請直接回答問題，不要使用書信格式。不要寫開頭稱呼語（如"親愛的"）、結尾祝福語或署名。請像是在面對面對話一樣自然回應。
+請以16世紀德國改革家馬丁路德的身份用繁體中文回應。這是一個即時對話，請直接回答問題，不要使用書信格式。不要寫開頭稱呼語（如"親愛的"）、結尾祝福語或署名。請像是在面對面對話一樣自然回應。
 
 ${responseStyle}`;
 
-        // 嘗試使用 Responses API 與您的 Prompt ID
+        // 嘗試使用正確的 Responses API 調用方式
         let response;
         try {
-            console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId} (max_tokens: ${maxTokens})`);
+            console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId} 版本: ${LUTHER_CONFIG.version} (max_tokens: ${maxTokens})`);
             
             response = await openai.responses.create({
-                model: LUTHER_CONFIG.promptId, // 試試直接用 Prompt ID 作為模型
+                prompt: {
+                    id: LUTHER_CONFIG.promptId,
+                    version: LUTHER_CONFIG.version
+                },
                 input: fullInput,
                 max_output_tokens: maxTokens,
                 temperature: isDirectMention ? 0.4 : 0.6
@@ -282,17 +285,18 @@ ${responseStyle}`;
                 messages: [
                     {
                         role: "system",
-                        content: `你是16世紀德國神學家馬丁路德，請根據向量資料庫中的馬丁路德著作來回答。
+                        content: `你是16世紀德國改革家馬丁路德，請根據向量資料庫中的文件來回答。
 重要指示：
-1. 優先使用向量資料庫中的馬丁路德著作內容作為回答依據
-2. 準確引用馬丁路德的神學觀點和著作
+1. 優先使用向量資料庫中的文件內容作為回答依據
+2. 準確引用路德的神學觀點和著作（特別是《九十五條論綱》、《論基督徒的自由》）
 3. 用繁體中文回答，除非特殊情況需要其他語言
 4. 這是即時對話，請直接回答問題，像面對面交談一樣自然
 5. 不要使用書信格式：不要寫開頭稱呼語（如"親愛的"、"敬愛的"）
 6. 不要寫結尾祝福語（如"願上帝祝福您"、"在基督裡"）
-7. 不要寫署名（如"馬丁路德"、"路德"）
-8. 保持路德的說話風格和神學觀點，但用對話語調
-9. ${responseStyle}
+7. 不要寫署名（如"馬丁·路德"、"路德"）
+8. 保持路德的神學觀點和改革傳統，但用對話語調
+9. 強調唯獨恩典、唯獨信心、唯獨聖經等改革宗核心教義
+10. ${responseStyle}
 
 Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
 版本: ${LUTHER_CONFIG.version}`
@@ -426,7 +430,7 @@ function ensureShortResponse(text) {
     return result;
 }
 
-// 發送馬丁路德回應
+// 發送路德回應
 async function sendLutherResponse(message, response, isDirectMention = false) {
     try {
         // 處理過長的回應
@@ -475,26 +479,26 @@ async function sendLutherResponse(message, response, isDirectMention = false) {
 // 創建嵌入式回應
 function createLutherEmbed(response, author, isDirectMention = false) {
     const embedTitle = isDirectMention ? 
-        '🕊️ 馬丁路德的詳細回應' : 
-        '🕊️ 馬丁路德的回應';
+        '⚔️ 馬丁路德的回應' : 
+        '⚔️ 馬丁路德的回應';
         
     return new EmbedBuilder()
-        .setColor(0x8B4513) // 棕色，象徵古典神學
+        .setColor(0x8B4513) // 棕色，象徵路德的樸實
         .setAuthor({
             name: '馬丁路德 (Martin Luther)',
-            iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg/256px-Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg'
+            iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg/256px-Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg'
         })
         .setTitle(embedTitle)
         .setDescription(response)
         .setFooter({
-            text: `回應給 ${author.displayName || author.username} • 基於馬丁路德著作`,
+            text: `回應給 ${author.displayName || author.username} `,
             iconURL: author.displayAvatarURL({ dynamic: true })
         })
         .setTimestamp()
         .addFields({
             name: '💡 提醒',
             value: isDirectMention ? 
-                '此為詳細回應，基於馬丁路德的神學著作和思想' : 
+                '此回應基於馬丁路德的神學著作和思想' : 
                 '此回應基於馬丁路德的神學著作和思想',
             inline: false
         });
@@ -583,6 +587,19 @@ process.on('SIGINT', async () => {
         console.error('關閉時發生錯誤:', error);
     }
     
+    process.exit(0);
+});
+
+// 處理 SIGTERM 信號
+process.on('SIGTERM', async () => {
+    console.log('🔄 收到 SIGTERM，正在優雅關閉...');
+    try {
+        await client.user.setStatus('invisible');
+        client.destroy();
+        console.log('✅ 機器人已安全關閉');
+    } catch (error) {
+        console.error('關閉時發生錯誤:', error);
+    }
     process.exit(0);
 });
 
