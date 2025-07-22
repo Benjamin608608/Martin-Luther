@@ -29,8 +29,8 @@ const LUTHER_CONFIG = {
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
     stopCommand: "!stop", // 停止指令
     otherBotId: "1397080413540978789", // 加爾文機器人 ID
-    shortResponseTokens: 512, // 簡短回應 token 限制
-    longResponseTokens: 2048, // 詳細回應 token 限制
+    shortResponseTokens: 90, // 簡短回應 token 限制
+    longResponseTokens: 1000, // 詳細回應 token 限制
 };
 
 // 機器人狀態管理
@@ -243,7 +243,7 @@ async function getLutherResponse(message, isDirectMention = false) {
             
         const responseStyle = isDirectMention ? 
             "請提供詳細完整的神學回應，但保持對話風格，就像在和朋友深入討論神學話題。不要寫成學術文章或摘錄，要像自然的對話交流。" :
-            "請給出自然的對話回應，就像朋友間的閒聊，最多60個中文字。避免長篇大論，保持輕鬆對話的語調。";
+            "請給出簡短自然的對話回應，就像朋友間的閒聊，最多30個中文字。避免長篇大論，保持輕鬆對話的語調。";
         
         // 構建包含所有上下文的輸入
         const fullInput = `對話上下文: ${conversationContext}
@@ -264,12 +264,10 @@ ${responseStyle}`;
             console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId} (max_tokens: ${maxTokens})`);
             
             response = await openai.responses.create({
-                model: "gpt-4o", // 使用支援 Responses API 的模型
+                model: LUTHER_CONFIG.promptId, // 試試直接用 Prompt ID 作為模型
                 input: fullInput,
-                // 如果 Prompt ID 支援 instructions 參數
-                instructions: `使用 Prompt ID: ${LUTHER_CONFIG.promptId} 版本: ${LUTHER_CONFIG.version}。以馬丁路德的身份回應，基於向量資料庫中的馬丁路德著作。這是即時對話，請直接回答問題，不要使用書信格式、開頭稱呼語、結尾祝福語或署名。像面對面對話一樣自然回應。${responseStyle}`,
                 max_output_tokens: maxTokens,
-                temperature: isDirectMention ? 0.4 : 0.6 // 簡短回應稍微提高創造性
+                temperature: isDirectMention ? 0.4 : 0.6
             });
             
             console.log('✅ Responses API 調用成功');
@@ -477,7 +475,7 @@ async function sendLutherResponse(message, response, isDirectMention = false) {
 // 創建嵌入式回應
 function createLutherEmbed(response, author, isDirectMention = false) {
     const embedTitle = isDirectMention ? 
-        '🕊️ 馬丁路德的回應' : 
+        '🕊️ 馬丁路德的詳細回應' : 
         '🕊️ 馬丁路德的回應';
         
     return new EmbedBuilder()
@@ -489,14 +487,14 @@ function createLutherEmbed(response, author, isDirectMention = false) {
         .setTitle(embedTitle)
         .setDescription(response)
         .setFooter({
-            text: `回應給 ${author.displayName || author.username} `,
+            text: `回應給 ${author.displayName || author.username} • 基於馬丁路德著作`,
             iconURL: author.displayAvatarURL({ dynamic: true })
         })
         .setTimestamp()
         .addFields({
             name: '💡 提醒',
             value: isDirectMention ? 
-                '此回應基於馬丁路德的神學著作和思想' : 
+                '此為詳細回應，基於馬丁路德的神學著作和思想' : 
                 '此回應基於馬丁路德的神學著作和思想',
             inline: false
         });
