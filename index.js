@@ -78,6 +78,12 @@ client.on('messageCreate', async (message) => {
         // 忽略自己的訊息
         if (message.author.id === client.user.id) return;
         
+        // 馬丁路德機器人不回應任何 / 開頭的句子
+        if (message.content.trim().startsWith('/')) {
+            console.log(`⏭️ 忽略 / 開頭的訊息: ${message.content.substring(0, 50)}...`);
+            return;
+        }
+        
         // 檢查是否為停止/啟動指令
         if (message.content.trim() === LUTHER_CONFIG.stopCommand) {
             await handleStopCommand(message);
