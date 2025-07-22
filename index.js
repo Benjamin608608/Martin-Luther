@@ -1,6 +1,9 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
-const OpenAI = require('openai');
-require('dotenv').config();
+import { Client, GatewayIntentBits, EmbedBuilder, ActivityType } from 'discord.js';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+// 載入環境變數
+dotenv.config();
 
 // 初始化 Discord 客戶端
 const client = new Client({
@@ -203,40 +206,48 @@ async function getLutherResponse(message) {
         
         // 檢測是否被直接提及
         const isDirectMention = message.mentions.has(client.user);
-        const isStopCommand = message.content.trim() === LUTHER_CONFIG.stopCommand;
         
         console.log(`🤖 調用 OpenAI API for: ${userMessage.substring(0, 50)}...`);
         
-        const response = await openai.responses.create({
-            prompt: {
-                id: LUTHER_CONFIG.promptId,
-                version: LUTHER_CONFIG.version
-            },
-            variables: {
-                user_message: userMessage,
-                conversation_context: conversationContext,
-                channel_name: message.channel.name || '私人對話',
-                is_direct_mention: isDirectMention,
-                author_name: message.author.displayName || message.author.username,
-                author_is_bot: message.author.bot,
-                response_language: "繁體中文",
-                luther_persona: "以16世紀德國神學家馬丁路德的身份回應，基於您存儲的馬丁路德著作向量資料庫。請用繁體中文回答，除非特殊情況需要其他語言。保持路德的神學觀點和說話風格。對所有訊息都要給出回應，不論是否包含神學關鍵詞。",
-                bot_status: "active"
-            }
+        // 使用與您成功機器人相同的 Chat Completions API
+        const response = await openai.chat.completions.create({
+            model: "gpt-4", // 使用與您成功機器人相同的模型
+            messages: [
+                {
+                    role: "system",
+                    content: `你是16世紀德國神學家馬丁路德，請根據向量資料庫中的馬丁路德著作來回答。
+重要指示：
+1. 優先使用向量資料庫中的馬丁路德著作內容作為回答依據
+2. 準確引用馬丁路德的神學觀點和著作
+3. 用繁體中文回答，除非特殊情況需要其他語言
+4. 回答要自然、就像馬丁路德本人在對話
+5. 不要提及「資料庫」或「系統」等技術詞彙
+6. 保持路德的說話風格和神學觀點
+7. 對所有訊息都要給出回應，基於宗教改革的精神
+8. 回答長度適中，避免過於冗長
+
+對話上下文：${conversationContext}
+頻道：${message.channel.name || '私人對話'}
+發送者：${message.author.displayName || message.author.username} ${message.author.bot ? '(機器人)' : '(信徒)'}
+是否直接提及：${isDirectMention ? '是' : '否'}
+
+用戶訊息：${userMessage}`
+                },
+                {
+                    role: "user",
+                    content: userMessage
+                }
+            ],
+            max_tokens: 1000,
+            temperature: 0.4, // 與您成功機器人相同的設定
+            // 如果您的 API 支援 prompt ID，請取消註解以下行
+            // prompt: {
+            //   id: LUTHER_CONFIG.promptId,
+            //   version: LUTHER_CONFIG.version
+            // }
         });
 
-        // 處理不同可能的回應格式
-        let responseContent = response.content || 
-                             response.message || 
-                             response.text || 
-                             response.choices?.[0]?.message?.content ||
-                             response.choices?.[0]?.text;
-        
-        if (!responseContent && response.data) {
-            responseContent = response.data.content || response.data.message || response.data.text;
-        }
-        
-        return responseContent || null;
+        return response.choices[0].message.content;
         
     } catch (error) {
         console.error('OpenAI API 調用失敗:', error);
