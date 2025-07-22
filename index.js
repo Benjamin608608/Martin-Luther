@@ -29,8 +29,8 @@ const LUTHER_CONFIG = {
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
     stopCommand: "!stop", // 停止指令
     otherBotId: "1397080413540978789", // 加爾文機器人 ID
-    shortResponseTokens: 512, // 簡短回應 token 限制
-    longResponseTokens: 2048, // 詳細回應 token 限制
+    shortResponseTokens: 90, // 簡短回應 token 限制
+    longResponseTokens: 1000, // 詳細回應 token 限制
 };
 
 // 機器人狀態管理
@@ -242,7 +242,7 @@ async function getLutherResponse(message, isDirectMention = false) {
             LUTHER_CONFIG.shortResponseTokens;
             
         const responseStyle = isDirectMention ? 
-            "請提供詳細完整的神學回應，深入解釋相關教義和背景。" :
+            "請提供詳細完整的神學回應，但保持對話風格，就像在和朋友深入討論神學話題。不要寫成學術文章或摘錄，要像自然的對話交流。" :
             "請給出簡短自然的對話回應，就像朋友間的閒聊，最多30個中文字。避免長篇大論，保持輕鬆對話的語調。";
         
         // 構建包含所有上下文的輸入
@@ -395,13 +395,13 @@ function ensureShortResponse(text) {
     // 移除多餘的換行
     let cleaned = text.replace(/\n+/g, ' ').trim();
     
-    // 按句子分割
-    const sentences = cleaned.split(/[。！？.!?]/);
+    // 按句子分割（保留標點符號）
+    const sentences = cleaned.split(/(?<=[。！？.!?])/);
     
     // 如果超過30個中文字，取前面的句子
     let result = '';
     for (const sentence of sentences) {
-        const potential = result + sentence + '。';
+        const potential = result + sentence;
         if (potential.replace(/[^\u4e00-\u9fa5]/g, '').length <= 35) { // 稍微寬鬆一些
             result = potential;
         } else {
@@ -409,17 +409,23 @@ function ensureShortResponse(text) {
         }
     }
     
-    // 如果結果為空或太短，取原文前30個中文字
+    // 如果結果為空或太短，取原文前50個字符
     if (!result || result.length < 10) {
         const chineseChars = cleaned.match(/[\u4e00-\u9fa5]/g);
         if (chineseChars && chineseChars.length > 30) {
-            result = cleaned.substring(0, 50); // 大概取前50個字符
+            result = cleaned.substring(0, 50);
         } else {
             result = cleaned;
         }
     }
     
-    return result.trim();
+    // 確保結尾有句號（但不重複）
+    result = result.trim();
+    if (result && !result.match(/[。！？.!?]$/)) {
+        result += '。';
+    }
+    
+    return result;
 }
 
 // 發送馬丁路德回應
@@ -471,7 +477,7 @@ async function sendLutherResponse(message, response, isDirectMention = false) {
 // 創建嵌入式回應
 function createLutherEmbed(response, author, isDirectMention = false) {
     const embedTitle = isDirectMention ? 
-        '🕊️ 馬丁路德的回應' : 
+        '🕊️ 馬丁路德的詳細回應' : 
         '🕊️ 馬丁路德的回應';
         
     return new EmbedBuilder()
@@ -483,14 +489,14 @@ function createLutherEmbed(response, author, isDirectMention = false) {
         .setTitle(embedTitle)
         .setDescription(response)
         .setFooter({
-            text: `回應給 ${author.displayName || author.username} `,
+            text: `回應給 ${author.displayName || author.username} • 基於馬丁路德著作`,
             iconURL: author.displayAvatarURL({ dynamic: true })
         })
         .setTimestamp()
         .addFields({
             name: '💡 提醒',
             value: isDirectMention ? 
-                '此回應基於馬丁路德的神學著作和思想' : 
+                '此為詳細回應，基於馬丁路德的神學著作和思想' : 
                 '此回應基於馬丁路德的神學著作和思想',
             inline: false
         });
