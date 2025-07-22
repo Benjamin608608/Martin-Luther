@@ -29,7 +29,7 @@ const LUTHER_CONFIG = {
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
     stopCommand: "!stop", // 停止指令
     otherBotId: "1397080413540978789", // 加爾文機器人 ID
-    shortResponseTokens: 90, // 簡短回應 token 限制
+    shortResponseTokens: 180, // 簡短回應 token 限制
     longResponseTokens: 1000, // 詳細回應 token 限制
 };
 
