@@ -23,7 +23,7 @@ const openai = new OpenAI({
 // 馬丁路德機器人配置
 const LUTHER_CONFIG = {
     promptId: "pmpt_687f0b8c68908193864d9a438af2dd4f01a25e0d816dfd3a",
-    version: "1",
+    version: "8",
     maxResponseLength: 2000,
     responseDelay: 2000, // 回應延遲 (毫秒)
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
