@@ -28,6 +28,9 @@ const LUTHER_CONFIG = {
     responseDelay: 2000, // 回應延遲 (毫秒)
     blacklistedChannels: [], // 可以添加不想回應的頻道 ID
     stopCommand: "!stop", // 停止指令
+    otherBotId: "1397080413540978789", // 加爾文機器人 ID
+    shortResponseTokens: 90, // 簡短回應 token 限制
+    longResponseTokens: 1000, // 詳細回應 token 限制
 };
 
 // 機器人狀態管理
@@ -78,6 +81,12 @@ client.on('messageCreate', async (message) => {
         // 忽略自己的訊息
         if (message.author.id === client.user.id) return;
         
+        // 如果訊息 @ 了加爾文機器人，馬丁路德機器人不回應
+        if (message.mentions.users.has(LUTHER_CONFIG.otherBotId)) {
+            console.log(`⏭️ 忽略 @ 加爾文機器人的訊息: ${message.content.substring(0, 50)}...`);
+            return;
+        }
+        
         // 馬丁路德機器人不回應任何 / 開頭的句子
         if (message.content.trim().startsWith('/')) {
             console.log(`⏭️ 忽略 / 開頭的訊息: ${message.content.substring(0, 50)}...`);
@@ -108,7 +117,11 @@ client.on('messageCreate', async (message) => {
         // 檢查是否在黑名單頻道
         if (LUTHER_CONFIG.blacklistedChannels.includes(message.channel.id)) return;
         
-        console.log(`📨 收到訊息 from ${message.author.tag}: ${message.content.substring(0, 100)}...`);
+        // 檢測是否被直接提及（決定回應模式）
+        const isDirectMention = message.mentions.has(client.user.id);
+        const responseMode = isDirectMention ? "詳細" : "簡短";
+        
+        console.log(`📨 收到訊息 from ${message.author.tag} (${responseMode}模式): ${message.content.substring(0, 100)}...`);
         
         // 更新對話歷史
         updateConversationHistory(message);
@@ -120,11 +133,11 @@ client.on('messageCreate', async (message) => {
         setTimeout(async () => {
             try {
                 // 獲取馬丁路德的回應
-                const response = await getLutherResponse(message);
+                const response = await getLutherResponse(message, isDirectMention);
                 
                 if (response && response.trim()) {
-                    await sendLutherResponse(message, response);
-                    console.log(`✅ 已回應 ${message.author.tag} 的訊息`);
+                    await sendLutherResponse(message, response, isDirectMention);
+                    console.log(`✅ 已回應 ${message.author.tag} 的訊息 (${responseMode}模式)`);
                 }
             } catch (error) {
                 console.error('回應訊息時發生錯誤:', error);
@@ -159,7 +172,7 @@ async function handleStartCommand(message) {
     }
     
     if (botStatus.isActive) {
-        await message.reply('▶️ 機器人已經在運行中。');
+        await message.reply('✅ 機器人已經在運行中。');
         return;
     }
     
@@ -216,15 +229,21 @@ function getConversationContext(channelId) {
 }
 
 // 呼叫馬丁路德 AI 回應
-async function getLutherResponse(message) {
+async function getLutherResponse(message, isDirectMention = false) {
     try {
         const conversationContext = getConversationContext(message.channel.id);
         const userMessage = message.content;
         
-        // 檢測是否被直接提及
-        const isDirectMention = message.mentions.has(client.user);
+        console.log(`🤖 調用 OpenAI API for: ${userMessage.substring(0, 50)}... (${isDirectMention ? '詳細' : '簡短'}模式)`);
         
-        console.log(`🤖 調用 OpenAI API for: ${userMessage.substring(0, 50)}...`);
+        // 根據是否被直接提及決定回應風格和長度
+        const maxTokens = isDirectMention ? 
+            LUTHER_CONFIG.longResponseTokens : 
+            LUTHER_CONFIG.shortResponseTokens;
+            
+        const responseStyle = isDirectMention ? 
+            "請提供詳細完整的神學回應，深入解釋相關教義和背景。" :
+            "請給出簡短自然的對話回應，就像朋友間的閒聊，最多30個中文字。避免長篇大論，保持輕鬆對話的語調。";
         
         // 構建包含所有上下文的輸入
         const fullInput = `對話上下文: ${conversationContext}
@@ -233,22 +252,24 @@ async function getLutherResponse(message) {
 
 頻道: ${message.channel.name || '私人對話'}
 發送者: ${message.author.displayName || message.author.username} ${message.author.bot ? '(機器人)' : '(信徒)'}
-是否直接提及: ${isDirectMention ? '是' : '否'}
+回應模式: ${isDirectMention ? '詳細回應' : '簡短對話'}
 
-請以16世紀德國神學家馬丁路德的身份用繁體中文回應。這是一個即時對話，請直接回答問題，不要使用書信格式。不要寫開頭稱呼語（如"親愛的"）、結尾祝福語或署名。請像是在面對面對話一樣自然回應。`;
+請以16世紀德國神學家馬丁路德的身份用繁體中文回應。這是一個即時對話，請直接回答問題，不要使用書信格式。不要寫開頭稱呼語（如"親愛的"）、結尾祝福語或署名。請像是在面對面對話一樣自然回應。
+
+${responseStyle}`;
 
         // 嘗試使用 Responses API 與您的 Prompt ID
         let response;
         try {
-            console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId}`);
+            console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId} (max_tokens: ${maxTokens})`);
             
             response = await openai.responses.create({
                 model: "gpt-4o", // 使用支援 Responses API 的模型
                 input: fullInput,
                 // 如果 Prompt ID 支援 instructions 參數
-                instructions: `使用 Prompt ID: ${LUTHER_CONFIG.promptId} 版本: ${LUTHER_CONFIG.version}。以馬丁路德的身份回應，基於向量資料庫中的馬丁路德著作。這是即時對話，請直接回答問題，不要使用書信格式、開頭稱呼語、結尾祝福語或署名。像面對面對話一樣自然回應。`,
-                max_output_tokens: 1000,
-                temperature: 0.4
+                instructions: `使用 Prompt ID: ${LUTHER_CONFIG.promptId} 版本: ${LUTHER_CONFIG.version}。以馬丁路德的身份回應，基於向量資料庫中的馬丁路德著作。這是即時對話，請直接回答問題，不要使用書信格式、開頭稱呼語、結尾祝福語或署名。像面對面對話一樣自然回應。${responseStyle}`,
+                max_output_tokens: maxTokens,
+                temperature: isDirectMention ? 0.4 : 0.6 // 簡短回應稍微提高創造性
             });
             
             console.log('✅ Responses API 調用成功');
@@ -273,7 +294,7 @@ async function getLutherResponse(message) {
 6. 不要寫結尾祝福語（如"願上帝祝福您"、"在基督裡"）
 7. 不要寫署名（如"馬丁路德"、"路德"）
 8. 保持路德的說話風格和神學觀點，但用對話語調
-9. 回答長度適中，避免過於冗長
+9. ${responseStyle}
 
 Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
 版本: ${LUTHER_CONFIG.version}`
@@ -283,8 +304,8 @@ Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
                         content: fullInput
                     }
                 ],
-                max_tokens: 1000,
-                temperature: 0.4
+                max_tokens: maxTokens,
+                temperature: isDirectMention ? 0.4 : 0.6
             });
             
             console.log('✅ Chat Completions API 調用成功');
@@ -307,6 +328,11 @@ Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
         // 清理書信格式的後處理
         if (responseContent) {
             responseContent = cleanLetterFormat(responseContent);
+            
+            // 如果是簡短模式，進一步確保回應簡潔
+            if (!isDirectMention) {
+                responseContent = ensureShortResponse(responseContent);
+            }
         }
 
         return responseContent;
@@ -362,8 +388,42 @@ function cleanLetterFormat(text) {
     return cleaned;
 }
 
+// 確保簡短回應的輔助函數
+function ensureShortResponse(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // 移除多餘的換行
+    let cleaned = text.replace(/\n+/g, ' ').trim();
+    
+    // 按句子分割
+    const sentences = cleaned.split(/[。！？.!?]/);
+    
+    // 如果超過30個中文字，取前面的句子
+    let result = '';
+    for (const sentence of sentences) {
+        const potential = result + sentence + '。';
+        if (potential.replace(/[^\u4e00-\u9fa5]/g, '').length <= 35) { // 稍微寬鬆一些
+            result = potential;
+        } else {
+            break;
+        }
+    }
+    
+    // 如果結果為空或太短，取原文前30個中文字
+    if (!result || result.length < 10) {
+        const chineseChars = cleaned.match(/[\u4e00-\u9fa5]/g);
+        if (chineseChars && chineseChars.length > 30) {
+            result = cleaned.substring(0, 50); // 大概取前50個字符
+        } else {
+            result = cleaned;
+        }
+    }
+    
+    return result.trim();
+}
+
 // 發送馬丁路德回應
-async function sendLutherResponse(message, response) {
+async function sendLutherResponse(message, response, isDirectMention = false) {
     try {
         // 處理過長的回應
         if (response.length > LUTHER_CONFIG.maxResponseLength) {
@@ -386,12 +446,13 @@ async function sendLutherResponse(message, response) {
                 }
             }
         } else {
-            // 創建嵌入式回應 (較正式的回應)
-            if (message.mentions.has(client.user) || response.length > 500) {
-                const embed = createLutherEmbed(response, message.author);
+            // 根據回應模式決定發送方式
+            if (isDirectMention || response.length > 500) {
+                // 詳細回應或較長回應使用嵌入式
+                const embed = createLutherEmbed(response, message.author, isDirectMention);
                 await message.channel.send({ embeds: [embed] });
             } else {
-                // 簡單回應 (更自然的對話)
+                // 簡短回應直接發送
                 await message.channel.send(response);
             }
         }
@@ -408,13 +469,18 @@ async function sendLutherResponse(message, response) {
 }
 
 // 創建嵌入式回應
-function createLutherEmbed(response, author) {
+function createLutherEmbed(response, author, isDirectMention = false) {
+    const embedTitle = isDirectMention ? 
+        '🕊️ 馬丁路德的詳細回應' : 
+        '🕊️ 馬丁路德的回應';
+        
     return new EmbedBuilder()
         .setColor(0x8B4513) // 棕色，象徵古典神學
         .setAuthor({
             name: '馬丁路德 (Martin Luther)',
             iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg/256px-Lucas_Cranach_d.%C3%84._-_Martin_Luther%2C_1528_%28Veste_Coburg%29.jpg'
         })
+        .setTitle(embedTitle)
         .setDescription(response)
         .setFooter({
             text: `回應給 ${author.displayName || author.username} • 基於馬丁路德著作`,
@@ -423,7 +489,9 @@ function createLutherEmbed(response, author) {
         .setTimestamp()
         .addFields({
             name: '💡 提醒',
-            value: '此回應基於馬丁路德的神學著作和思想',
+            value: isDirectMention ? 
+                '此為詳細回應，基於馬丁路德的神學著作和思想' : 
+                '此回應基於馬丁路德的神學著作和思想',
             inline: false
         });
 }
