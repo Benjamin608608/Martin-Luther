@@ -1,49 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder, ActivityType }
-
-// 清理書信格式的後處理函數
-function cleanLetterFormat(text) {
-    if (!text || typeof text !== 'string') return text;
-    
-    let cleaned = text.trim();
-    
-    // 移除開頭的稱呼語
-    const greetingPatterns = [
-        /^親愛的[^，。！？\n]*[，。！？\n]/,
-        /^敬愛的[^，。！？\n]*[，。！？\n]/,
-        /^我的[^，。！？\n]*[，。！？\n]/,
-        /^在基督裡的[^，。！？\n]*[，。！？\n]/,
-        /^弟兄[^，。！？\n]*[，。！？\n]/,
-        /^姊妹[^，。！？\n]*[，。！？\n]/,
-        /^朋友[^，。！？\n]*[，。！？\n]/
-    ];
-    
-    for (const pattern of greetingPatterns) {
-        cleaned = cleaned.replace(pattern, '');
-    }
-    
-    // 移除結尾的祝福語和署名
-    const endingPatterns = [
-        /\n*願上帝[^。！]*[。！]?\s*$/,
-        /\n*在基督裡[^。！]*[。！]?\s*$/,
-        /\n*主內[^。！]*[。！]?\s*$/,
-        /\n*祝福您[^。！]*[。！]?\s*$/,
-        /\n*願主[^。！]*[。！]?\s*$/,
-        /\n*馬丁[·・\s]*路德\s*$/,
-        /\n*路德\s*$/,
-        /\n*您的僕人[^。！]*[。！]?\s*$/,
-        /\n*在主裡[^。！]*[。！]?\s*$/,
-        /\n*神的僕人[^。！]*[。！]?\s*$/
-    ];
-    
-    for (const pattern of endingPatterns) {
-        cleaned = cleaned.replace(pattern, '');
-    }
-    
-    // 移除多餘的換行和空格
-    cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
-    
-    return cleaned;
-} from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, ActivityType } from 'discord.js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -343,6 +298,51 @@ Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
         console.error('OpenAI API 調用失敗:', error);
         throw error;
     }
+}
+
+// 清理書信格式的後處理函數
+function cleanLetterFormat(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    let cleaned = text.trim();
+    
+    // 移除開頭的稱呼語
+    const greetingPatterns = [
+        /^親愛的[^，。！？\n]*[，。！？\n]/,
+        /^敬愛的[^，。！？\n]*[，。！？\n]/,
+        /^我的[^，。！？\n]*[，。！？\n]/,
+        /^在基督裡的[^，。！？\n]*[，。！？\n]/,
+        /^弟兄[^，。！？\n]*[，。！？\n]/,
+        /^姊妹[^，。！？\n]*[，。！？\n]/,
+        /^朋友[^，。！？\n]*[，。！？\n]/
+    ];
+    
+    for (const pattern of greetingPatterns) {
+        cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // 移除結尾的祝福語和署名
+    const endingPatterns = [
+        /\n*願上帝[^。！]*[。！]?\s*$/,
+        /\n*在基督裡[^。！]*[。！]?\s*$/,
+        /\n*主內[^。！]*[。！]?\s*$/,
+        /\n*祝福您[^。！]*[。！]?\s*$/,
+        /\n*願主[^。！]*[。！]?\s*$/,
+        /\n*馬丁[·・\s]*路德\s*$/,
+        /\n*路德\s*$/,
+        /\n*您的僕人[^。！]*[。！]?\s*$/,
+        /\n*在主裡[^。！]*[。！]?\s*$/,
+        /\n*神的僕人[^。！]*[。！]?\s*$/
+    ];
+    
+    for (const pattern of endingPatterns) {
+        cleaned = cleaned.replace(pattern, '');
+    }
+    
+    // 移除多餘的換行和空格
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
+    
+    return cleaned;
 }
 
 // 發送馬丁路德回應
