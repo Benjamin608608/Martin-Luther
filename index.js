@@ -209,45 +209,83 @@ async function getLutherResponse(message) {
         
         console.log(`🤖 調用 OpenAI API for: ${userMessage.substring(0, 50)}...`);
         
-        // 使用與您成功機器人相同的 Chat Completions API
-        const response = await openai.chat.completions.create({
-            model: "gpt-4", // 使用與您成功機器人相同的模型
-            messages: [
-                {
-                    role: "system",
-                    content: `你是16世紀德國神學家馬丁路德，請根據向量資料庫中的馬丁路德著作來回答。
+        // 構建包含所有上下文的輸入
+        const fullInput = `對話上下文: ${conversationContext}
+
+用戶訊息: ${userMessage}
+
+頻道: ${message.channel.name || '私人對話'}
+發送者: ${message.author.displayName || message.author.username} ${message.author.bot ? '(機器人)' : '(信徒)'}
+是否直接提及: ${isDirectMention ? '是' : '否'}
+
+請以16世紀德國神學家馬丁路德的身份用繁體中文回應。基於您的神學著作和思想來回答這則訊息。`;
+
+        // 嘗試使用 Responses API 與您的 Prompt ID
+        let response;
+        try {
+            console.log(`🔍 嘗試使用 Prompt ID: ${LUTHER_CONFIG.promptId}`);
+            
+            response = await openai.responses.create({
+                model: "gpt-4o", // 使用支援 Responses API 的模型
+                input: fullInput,
+                // 如果 Prompt ID 支援 instructions 參數
+                instructions: `使用 Prompt ID: ${LUTHER_CONFIG.promptId} 版本: ${LUTHER_CONFIG.version}。以馬丁路德的身份回應，基於向量資料庫中的馬丁路德著作。`,
+                max_output_tokens: 1000,
+                temperature: 0.4
+            });
+            
+            console.log('✅ Responses API 調用成功');
+            
+        } catch (responsesError) {
+            console.log('🔄 Responses API 失敗，使用備用方法...');
+            console.error('Responses API 錯誤:', responsesError.message);
+            
+            // 備用方法：使用 Chat Completions API
+            response = await openai.chat.completions.create({
+                model: "gpt-4", // 備用模型
+                messages: [
+                    {
+                        role: "system",
+                        content: `你是16世紀德國神學家馬丁路德，請根據向量資料庫中的馬丁路德著作來回答。
 重要指示：
 1. 優先使用向量資料庫中的馬丁路德著作內容作為回答依據
 2. 準確引用馬丁路德的神學觀點和著作
 3. 用繁體中文回答，除非特殊情況需要其他語言
 4. 回答要自然、就像馬丁路德本人在對話
-5. 不要提及「資料庫」或「系統」等技術詞彙
-6. 保持路德的說話風格和神學觀點
-7. 對所有訊息都要給出回應，基於宗教改革的精神
-8. 回答長度適中，避免過於冗長
+5. 保持路德的說話風格和神學觀點
+6. 對所有訊息都要給出回應，基於宗教改革的精神
+7. 回答長度適中，避免過於冗長
 
-對話上下文：${conversationContext}
-頻道：${message.channel.name || '私人對話'}
-發送者：${message.author.displayName || message.author.username} ${message.author.bot ? '(機器人)' : '(信徒)'}
-是否直接提及：${isDirectMention ? '是' : '否'}
+Prompt 參考 ID: ${LUTHER_CONFIG.promptId}
+版本: ${LUTHER_CONFIG.version}`
+                    },
+                    {
+                        role: "user",
+                        content: fullInput
+                    }
+                ],
+                max_tokens: 1000,
+                temperature: 0.4
+            });
+            
+            console.log('✅ Chat Completions API 調用成功');
+        }
 
-用戶訊息：${userMessage}`
-                },
-                {
-                    role: "user",
-                    content: userMessage
-                }
-            ],
-            max_tokens: 1000,
-            temperature: 0.4, // 與您成功機器人相同的設定
-            // 如果您的 API 支援 prompt ID，請取消註解以下行
-            // prompt: {
-            //   id: LUTHER_CONFIG.promptId,
-            //   version: LUTHER_CONFIG.version
-            // }
-        });
+        // 處理不同 API 的回應格式
+        let responseContent;
+        
+        if (response.output_text) {
+            // Responses API 格式
+            responseContent = response.output_text;
+        } else if (response.choices?.[0]?.message?.content) {
+            // Chat Completions API 格式
+            responseContent = response.choices[0].message.content;
+        } else {
+            console.log('🔍 未知回應格式:', JSON.stringify(response, null, 2));
+            responseContent = null;
+        }
 
-        return response.choices[0].message.content;
+        return responseContent;
         
     } catch (error) {
         console.error('OpenAI API 調用失敗:', error);
