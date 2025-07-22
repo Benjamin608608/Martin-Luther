@@ -471,7 +471,7 @@ async function sendLutherResponse(message, response, isDirectMention = false) {
 // 創建嵌入式回應
 function createLutherEmbed(response, author, isDirectMention = false) {
     const embedTitle = isDirectMention ? 
-        '🕊️ 馬丁路德的詳細回應' : 
+        '🕊️ 馬丁路德的回應' : 
         '🕊️ 馬丁路德的回應';
         
     return new EmbedBuilder()
@@ -483,14 +483,14 @@ function createLutherEmbed(response, author, isDirectMention = false) {
         .setTitle(embedTitle)
         .setDescription(response)
         .setFooter({
-            text: `回應給 ${author.displayName || author.username} • 基於馬丁路德著作`,
+            text: `回應給 ${author.displayName || author.username} `,
             iconURL: author.displayAvatarURL({ dynamic: true })
         })
         .setTimestamp()
         .addFields({
             name: '💡 提醒',
             value: isDirectMention ? 
-                '此為詳細回應，基於馬丁路德的神學著作和思想' : 
+                '此回應基於馬丁路德的神學著作和思想' : 
                 '此回應基於馬丁路德的神學著作和思想',
             inline: false
         });
