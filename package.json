@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "馬丁路德 Discord 機器人 - 基於歷史神學著作的 AI 助手",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
